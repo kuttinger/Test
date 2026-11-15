@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Ganslessen" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#7A1F1F</item>
+        <item name="android:windowBackground">#FFF8F0</item>
+    </style>
+    <color name="ic_launcher_background">#7A1F1F</color>
+</resources>
