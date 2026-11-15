@@ -24,7 +24,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items as listItems
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -57,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -107,51 +110,85 @@ private fun Kopf(titel: String) {
     )
 }
 
-/* ---------------- Übersicht ---------------- */
+/* ---------------- Namensauswahl & Übersicht ---------------- */
 
 @Composable
 private fun UebersichtScreen(vm: GansViewModel) {
-    var frageAllesLoeschen by remember { mutableStateOf(false) }
-    Scaffold(
-        topBar = { Kopf("Ganslessen") },
-        bottomBar = {
-            Box(Modifier.padding(16.dp)) {
-                Button(
-                    onClick = { vm.neueBestellung() },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                ) { Text("+  Neue Bestellung", fontSize = 18.sp) }
-            }
-        },
-    ) { innen ->
+    var frageZuruecksetzen by remember { mutableStateOf(false) }
+    var zuLoeschen by remember { mutableStateOf<Bestellung?>(null) }
+    var neuerName by remember { mutableStateOf("") }
+    Scaffold(topBar = { Kopf("Ganslessen") }) { innen ->
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(innen).fillMaxSize(),
+            modifier = Modifier.padding(innen).fillMaxSize().imePadding(),
         ) {
             item {
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(
-                        painterResource(R.drawable.img_gans), null,
-                        Modifier.size(160.dp),
-                    )
+                    Image(painterResource(R.drawable.img_gans), null, Modifier.size(140.dp))
                     Text(
-                        "Wer isst was?",
+                        "Wer bist du?",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = Weinrot,
                     )
                     Text(
-                        if (vm.bestellungen.isEmpty())
-                            "Tippe unten auf „Neue Bestellung“ und stell dir Schritt für Schritt deinen Ganslteller zusammen."
-                        else "${vm.bestellungen.size} Teller bestellt",
+                        if (vm.bestellungen.isEmpty()) "Gib deinen Namen ein. Deine Auswahl wird dann unter deinem Namen gespeichert."
+                        else "Tippe auf deinen Namen oder gib einen neuen ein.",
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
 
-            itemsIndexed(vm.bestellungen) { index, b ->
-                BestellungKarte(b, onEdit = { vm.bearbeiten(index) }, onDelete = { vm.loeschen(index) })
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(2.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        OutlinedTextField(
+                            value = neuerName,
+                            onValueChange = { neuerName = it },
+                            label = { Text("Dein Name") },
+                            placeholder = { Text("z. B. Oma, Papa, Lena …") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = {
+                                vm.starte(neuerName); neuerName = ""
+                            }),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(
+                            onClick = { vm.starte(neuerName); neuerName = "" },
+                            enabled = neuerName.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                        ) { Text("Los geht's ›", fontSize = 17.sp) }
+                    }
+                }
+            }
+
+            if (vm.bestellungen.isNotEmpty()) {
+                item {
+                    Text(
+                        "Gespeicherte Namen",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Weinrot,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+
+            listItems(vm.bestellungen, key = { it.name }) { b ->
+                NamensKarte(
+                    b,
+                    hatAuswahl = vm.hatAuswahl(b),
+                    onClick = { vm.starte(b.name) },
+                    onDelete = { zuLoeschen = b },
+                )
             }
 
             val gesamt = vm.gesamt()
@@ -169,51 +206,68 @@ private fun UebersichtScreen(vm: GansViewModel) {
                     }
                 }
                 item {
-                    TextButton(onClick = { frageAllesLoeschen = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Alle Bestellungen löschen")
+                    TextButton(onClick = { frageZuruecksetzen = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Auswahl aller zurücksetzen (Namen bleiben)")
                     }
                 }
             }
         }
     }
 
-    if (frageAllesLoeschen) {
+    if (frageZuruecksetzen) {
         AlertDialog(
-            onDismissRequest = { frageAllesLoeschen = false },
-            title = { Text("Alles löschen?") },
-            text = { Text("Alle Bestellungen werden entfernt.") },
+            onDismissRequest = { frageZuruecksetzen = false },
+            title = { Text("Neues Gansessen?") },
+            text = { Text("Die Auswahl aller wird geleert. Die Namen bleiben gespeichert.") },
             confirmButton = {
-                TextButton(onClick = { vm.allesLoeschen(); frageAllesLoeschen = false }) { Text("Löschen") }
+                TextButton(onClick = { vm.auswahlZuruecksetzen(); frageZuruecksetzen = false }) { Text("Zurücksetzen") }
             },
-            dismissButton = { TextButton(onClick = { frageAllesLoeschen = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(onClick = { frageZuruecksetzen = false }) { Text("Abbrechen") } },
+        )
+    }
+    zuLoeschen?.let { b ->
+        AlertDialog(
+            onDismissRequest = { zuLoeschen = null },
+            title = { Text("${b.name} entfernen?") },
+            text = { Text("Der Name und die Auswahl werden gelöscht.") },
+            confirmButton = {
+                TextButton(onClick = { vm.loeschen(b); zuLoeschen = null }) { Text("Entfernen") }
+            },
+            dismissButton = { TextButton(onClick = { zuLoeschen = null }) { Text("Abbrechen") } },
         )
     }
 }
 
 @Composable
-private fun BestellungKarte(b: Bestellung, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun NamensKarte(b: Bestellung, hatAuswahl: Boolean, onClick: () -> Unit, onDelete: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(2.dp),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    Modifier.size(40.dp).clip(CircleShape).background(Weinrot),
+                    Modifier.size(44.dp).clip(CircleShape).background(if (hatAuswahl) Color(0xFF3F7F24) else Weinrot),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(b.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (hatAuswahl) "✓" else b.name.take(1).uppercase(),
+                        color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp,
+                    )
                 }
                 Spacer(Modifier.width(12.dp))
-                Text(b.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
-                TextButton(onClick = onEdit) { Text("Ändern") }
+                Column(Modifier.weight(1f)) {
+                    Text(b.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(
+                        if (hatAuswahl) "Auswahl gespeichert – tippen zum Ändern" else "Noch nichts ausgewählt",
+                        fontSize = 13.sp, color = Color.Gray,
+                    )
+                }
                 TextButton(onClick = onDelete) { Text("✕") }
             }
-            Spacer(Modifier.height(4.dp))
-            if (b.mengen.isEmpty()) {
-                Text("Nichts ausgewählt", color = Color.Gray)
-            } else {
+            if (hatAuswahl) {
+                Spacer(Modifier.height(6.dp))
                 Text(
                     GansMenu.allItems.filter { (b.mengen[it.id] ?: 0) > 0 }
                         .joinToString(" · ") { "${b.mengen[it.id]}× ${it.name}" },
@@ -240,18 +294,17 @@ private fun PostenZeile(item: MenuItem, n: Int) {
 
 @Composable
 private fun WizardScreen(vm: GansViewModel, schritt: Int) {
-    val gesamtSchritte = vm.zusammenfassungsSchritt + 1
+    val gesamtSchritte = vm.zusammenfassungsSchritt
     val titel = when (schritt) {
-        0 -> "Wer bestellt?"
-        vm.zusammenfassungsSchritt -> "Dein Teller"
+        vm.zusammenfassungsSchritt -> "Teller von ${vm.name}"
         else -> GansMenu.steps[schritt - 1].title
     }
     Scaffold(
         topBar = {
             Column {
-                Kopf("Schritt ${schritt + 1} von $gesamtSchritte · $titel")
+                Kopf("${vm.name} · $titel")
                 LinearProgressIndicator(
-                    progress = { (schritt + 1f) / gesamtSchritte },
+                    progress = { schritt.toFloat() / gesamtSchritte },
                     modifier = Modifier.fillMaxWidth().height(6.dp),
                     color = Gold,
                     trackColor = Color(0xFFF3E9DC),
@@ -266,13 +319,13 @@ private fun WizardScreen(vm: GansViewModel, schritt: Int) {
                 OutlinedButton(
                     onClick = { vm.zurueck() },
                     modifier = Modifier.weight(1f).height(56.dp),
-                ) { Text(if (schritt == 0) "Abbrechen" else "‹ Zurück") }
+                ) { Text(if (schritt == 1) "‹ Namen" else "‹ Zurück") }
                 if (schritt == vm.zusammenfassungsSchritt) {
                     Button(
-                        onClick = { vm.speichern() },
+                        onClick = { vm.fertig() },
                         modifier = Modifier.weight(1f).height(56.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3F7F24)),
-                    ) { Text("✓ Bestellen", fontSize = 17.sp) }
+                    ) { Text("✓ Speichern", fontSize = 17.sp) }
                 } else {
                     Button(
                         onClick = { vm.weiter() },
@@ -284,36 +337,10 @@ private fun WizardScreen(vm: GansViewModel, schritt: Int) {
     ) { innen ->
         Box(Modifier.padding(innen).fillMaxSize()) {
             when (schritt) {
-                0 -> NameSchritt(vm)
                 vm.zusammenfassungsSchritt -> Zusammenfassung(vm)
                 else -> AuswahlSchritt(vm, GansMenu.steps[schritt - 1])
             }
         }
-    }
-}
-
-@Composable
-private fun NameSchritt(vm: GansViewModel) {
-    Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Image(painterResource(R.drawable.img_gans), null, Modifier.size(200.dp))
-        Text(
-            "Für wen ist der Teller?",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = Weinrot,
-        )
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = vm.name,
-            onValueChange = { vm.name = it },
-            label = { Text("Name") },
-            placeholder = { Text("z. B. Oma, Papa, Lena …") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
@@ -328,7 +355,7 @@ private fun AuswahlSchritt(vm: GansViewModel, step: Step) {
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Text(
-                step.subtitle,
+                "Schritt ${GansMenu.steps.indexOf(step) + 1} von ${GansMenu.steps.size + 1}: " + step.subtitle,
                 style = MaterialTheme.typography.titleMedium,
                 color = Weinrot,
                 modifier = Modifier.padding(bottom = 4.dp),
@@ -403,12 +430,12 @@ private fun Zusammenfassung(vm: GansViewModel) {
     ) {
         item {
             Text(
-                "Mahlzeit, ${vm.name.trim().ifEmpty { "Gast" }}!",
+                "Mahlzeit, ${vm.name}!",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = Weinrot,
             )
-            Text("Bitte kontrollieren – tippe auf einen Abschnitt, um ihn zu ändern.")
+            Text("Deine Auswahl ist unter deinem Namen gespeichert. Tippe auf einen Abschnitt, um ihn zu ändern.")
         }
         GansMenu.steps.forEachIndexed { i, step ->
             item {

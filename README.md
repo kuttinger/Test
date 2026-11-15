@@ -3,11 +3,12 @@
 Schritt-für-Schritt-Auswahl fürs Familien-Gansessen, mit Bildern.
 
 **Ablauf pro Person:**
-1. Name eingeben
+1. Auf der Startseite den eigenen Namen antippen oder einen neuen eingeben.
+   Die Auswahl wird unter dem Namen dauerhaft am Handy gespeichert.
 2. Fleisch: Bein, Flügel, Brust
 3. Beilagen: Speckfisolen, Knödel, Rotkraut, Karotten, Kroketten
 4. Extras: Bratapfel, Orangen, Sauce
-5. Zusammenfassung → Bestellen
+5. Zusammenfassung → Speichern
 
 Auf der Startseite gibt es alle Bestellungen der Familie und eine **Gesamtliste**,
 also z. B. 4× Bein, 9× Knödel. Damit weiß die Küche genau, was gebraucht wird.
